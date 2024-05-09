@@ -1,7 +1,7 @@
 bl_info = {
-	"name": "Move Origin to Surface",
+	"name": "Move Origin to Selection",
 	"author": "Johan Basberg",
-	"version": (2, 0),
+	"version": (2, 2),
 	"blender": (2, 80, 0),
 	"location": "Right Click > Move Origin to Selection",
 	"description": "Moves origin to center of selection being edited.",
@@ -12,8 +12,8 @@ import bpy
 import bmesh
 from mathutils import Vector
 
-class MoveOriginToSurfaceOperator(bpy.types.Operator):
-	bl_idname = "object.move_origin_to_surface"
+class JB_MoveOriginToSelectionOperator(bpy.types.Operator):
+	bl_idname = "jb_moveorigintoselectionoperator.move_origin_to_selection"
 	bl_label = "Move Origin to Selection"
 	bl_options = {'REGISTER', 'UNDO'}
 
@@ -21,6 +21,7 @@ class MoveOriginToSurfaceOperator(bpy.types.Operator):
 	def poll(cls, context):
 		obj = context.active_object
 		return obj and obj.type == 'MESH' and obj.mode == 'EDIT'
+
 
 	def execute(self, context):
 
@@ -35,35 +36,46 @@ class MoveOriginToSurfaceOperator(bpy.types.Operator):
 
 		return {'FINISHED'}
 
+
 	def move_origin_to_vertices(self, context):
-		obj = context.active_object
+		selected_verts = []
 
-		# Get the mesh data
-		mesh = obj.data
+		# Iterate over all selected objects in edit mode
+		for obj in context.selected_objects:
+			if obj.mode == 'EDIT':
+				# Get the mesh data
+				mesh = obj.data
 
-		# Create a BMesh representation of the mesh
-		bm = bmesh.new()
-		bm.from_mesh(mesh)
+				# Create a BMesh representation of the mesh
+				bm = bmesh.new()
+				bm.from_mesh(mesh)
+
+				# Get selected vertices
+				# verts = [v.co for v in bm.verts if v.select]
+				verts = [obj.matrix_world @ v.co for v in bm.verts if v.select]
+
+				# Append vertices to selected_verts
+				selected_verts.extend(verts)
+
+				# Free the BMesh
+				bm.free()
+
+		# Calculate the average center point if there are multiple selected edges
+		if not selected_verts:
+			bm.free()
+			self.report({'ERROR'}, "No vertex, edge or face selected!")
+			return {'CANCELLED'}
 
 		# Retain 3D cursor position to restore it after
 		tmp_cursor_location = Vector(bpy.context.scene.cursor.location)
 
-		# Get selected vertices
-		selected_verts = [v.co for v in bpy.context.active_object.data.vertices if v.select]
-
-		# Calculate the average center point if there are multiple selected edges
-		if not selected_verts:
-			self.report({'ERROR'}, "Please ensure at least one vertex, edge or face is selected.")
-			bm.free()
-			return {'CANCELLED'}
-
 		# Calculate the average
-		center = Vector()
+		global_center = Vector()
 		for vert in selected_verts:
-			center += vert
-		center /= len(selected_verts)
+			global_center += vert
+		global_center /= len(selected_verts)
 
-		bpy.context.scene.cursor.location = obj.matrix_world @ center
+		bpy.context.scene.cursor.location = global_center
 
 		bpy.ops.object.mode_set(mode='OBJECT')
 		bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
@@ -72,24 +84,24 @@ class MoveOriginToSurfaceOperator(bpy.types.Operator):
 		# Restore location of 3D cursor
 		bpy.context.scene.cursor.location = tmp_cursor_location
 
-		# Free the BMesh
-		bm.free()
-
-
+		return {'FINISHED'}
 
 
 def menu_func(self, context):
 	self.layout.separator()
 	selected_icon = "TRANSFORM_ORIGINS"
-	self.layout.operator(MoveOriginToSurfaceOperator.bl_idname, text="Move Origin to Selection", icon=selected_icon)
+	self.layout.operator(JB_MoveOriginToSelectionOperator.bl_idname, text="Move Origin to Selection", icon=selected_icon)
+
 
 def register():
-	bpy.utils.register_class(MoveOriginToSurfaceOperator)
+	bpy.utils.register_class(JB_MoveOriginToSelectionOperator)
 	bpy.types.VIEW3D_MT_edit_mesh_context_menu.append(menu_func)
 
+
 def unregister():
-	bpy.utils.unregister_class(MoveOriginToSurfaceOperator)
+	bpy.utils.unregister_class(JB_MoveOriginToSelectionOperator)
 	bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(menu_func)
+
 
 if __name__ == "__main__":
 	register()
