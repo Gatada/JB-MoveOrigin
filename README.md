@@ -5,6 +5,6 @@ The action is added to the bottom of the right-click menu shown in the 3D Viewpo
 
 <img width="802" alt="MoveOriginToSelection" src="https://github.com/Gatada/JB-MoveOrigin/assets/326334/7080506d-04a4-4280-b76b-f7176e9594cc">
 
-Currently, if multiple objects are selected, origin will be moved to the currently active object. I may change this later.
+The add-on handles multiple objects and will correctly move the origin to the centre of your selection—just like snap to selection for the 3D cursor.
 
 Johan
